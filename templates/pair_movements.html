@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pair Movements - MT5 Trading Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        .nav-link {
+            @apply px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md;
+        }
+        .nav-link.active {
+            @apply bg-blue-500 text-white hover:bg-blue-600 hover:text-white;
+        }
+        .card {
+            @apply bg-white p-6 rounded-lg shadow-md;
+        }
+        .movement-up {
+            @apply text-green-600;
+        }
+        .movement-down {
+            @apply text-red-600;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <nav class="bg-white shadow-md">
+        <div class="container mx-auto px-6 py-3">
+            <div class="flex justify-between items-center">
+                <h1 class="text-2xl font-bold">MT5 Trading Dashboard</h1>
+                <div class="flex space-x-4">
+                    <a href="/" class="nav-link">Dashboard</a>
+                    <a href="/correlation" class="nav-link">Correlation Analysis</a>
+                    <a href="/strength" class="nav-link">Currency Strength</a>
+                    <a href="/market_movements" class="nav-link">Market Movements</a>
+                    <a href="/pair_movements" class="nav-link active">Pair Movements</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-6 py-8">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold">Pairs with >1% Movement (2H)</h2>
+            <button onclick="updateData()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                Refresh
+            </button>
+        </div>
+
+        <div id="pairsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <!-- Pairs will be dynamically added here -->
+        </div>
+    </div>
+
+    <script>
+        function updateData() {
+            fetch('/api/pair_movements')
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.getElementById('pairsContainer');
+                    container.innerHTML = '';
+
+                    data.pairs.forEach((pair, index) => {
+                        const card = document.createElement('div');
+                        card.className = 'card';
+                        
+                        // Create header with pair name and change percentage
+                        const header = document.createElement('div');
+                        header.className = 'flex justify-between items-center mb-4';
+                        const isPositive = pair.change_percent >= 0;
+                        header.innerHTML = `
+                            <h3 class="text-lg font-bold">${pair.symbol}</h3>
+                            <span class="${isPositive ? 'movement-up' : 'movement-down'} font-bold">
+                                ${isPositive ? '↑' : '↓'} ${Math.abs(pair.change_percent).toFixed(2)}%
+                            </span>
+                        `;
+                        card.appendChild(header);
+
+                        // Create price info
+                        const priceInfo = document.createElement('div');
+                        priceInfo.className = 'text-sm text-gray-600 mb-4';
+                        priceInfo.innerHTML = `
+                            <div class="flex justify-between">
+                                <span>Start: ${pair.start_price.toFixed(5)}</span>
+                                <span>Current: ${pair.current_price.toFixed(5)}</span>
+                            </div>
+                        `;
+                        card.appendChild(priceInfo);
+
+                        // Create graph container
+                        const graphDiv = document.createElement('div');
+                        graphDiv.id = `graph-${index}`;
+                        graphDiv.style.height = '200px';
+                        card.appendChild(graphDiv);
+
+                        container.appendChild(card);
+
+                        // Create graph
+                        const trace = {
+                            x: pair.graph_data.timestamps,
+                            y: pair.graph_data.prices,
+                            type: 'scatter',
+                            mode: 'lines',
+                            line: {
+                                color: isPositive ? '#10B981' : '#EF4444'
+                            }
+                        };
+
+                        const layout = {
+                            margin: { t: 20, r: 20, l: 40, b: 40 },
+                            height: 200,
+                            xaxis: {
+                                showgrid: false
+                            },
+                            yaxis: {
+                                title: 'Price'
+                            }
+                        };
+
+                        Plotly.newPlot(`graph-${index}`, [trace], layout);
+                    });
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        // Initial load
+        updateData();
+        // Update every 5 minutes
+        setInterval(updateData, 300000);
+    </script>
+</body>
+</html> 

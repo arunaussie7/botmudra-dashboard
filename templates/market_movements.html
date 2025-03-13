@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Movements - MT5 Trading Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .nav-link {
+            @apply px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-all duration-200;
+        }
+        .nav-link.active {
+            @apply bg-indigo-600 text-white hover:bg-indigo-700;
+        }
+        .card {
+            @apply bg-white p-6 rounded-xl shadow-lg border border-gray-100 transition-all duration-300 hover:shadow-xl;
+        }
+        .movement-up {
+            @apply text-emerald-600 font-semibold;
+        }
+        .movement-down {
+            @apply text-rose-600 font-semibold;
+        }
+        .table-header {
+            @apply px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-50 first:rounded-tl-lg last:rounded-tr-lg;
+        }
+        .table-cell {
+            @apply px-6 py-4 whitespace-nowrap text-sm text-gray-800 text-left;
+        }
+        .refresh-btn {
+            @apply p-2 rounded-full hover:bg-gray-100 transition-colors duration-200;
+        }
+        .timeframe-select {
+            @apply px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500;
+        }
+        .stats-value {
+            @apply text-2xl font-bold;
+        }
+        .stats-label {
+            @apply text-sm text-gray-600;
+        }
+    </style>
+</head>
+<body>
+    <nav class="bg-white shadow-md sticky top-0 z-50">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex justify-between items-center">
+                <h1 class="text-2xl font-bold text-gray-800">MT5 Trading Dashboard</h1>
+                <div class="flex space-x-4">
+                    <a href="/" class="nav-link">Dashboard</a>
+                    <a href="/correlation" class="nav-link">Correlation Analysis</a>
+                    <a href="/strength" class="nav-link">Currency Strength</a>
+                    <a href="/market_movements" class="nav-link active">Market Movements</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-6 py-8">
+        <!-- Market Overview Section -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <!-- Major Pairs Movement -->
+            <div class="card">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold text-gray-800">Major Pairs Movement</h2>
+                    <button onclick="updateMarketData()" class="refresh-btn text-indigo-600 hover:text-indigo-700">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div id="majorPairsMovement" class="space-y-3"></div>
+            </div>
+
+            <!-- Volatility Index -->
+            <div class="card">
+                <h2 class="text-xl font-bold text-gray-800 mb-6">Volatility Index (24h)</h2>
+                <div id="volatilityChart" class="h-64"></div>
+            </div>
+
+            <!-- Market Sentiment -->
+            <div class="card">
+                <h2 class="text-xl font-bold text-gray-800 mb-6">Market Sentiment</h2>
+                <div id="sentimentChart" class="h-64"></div>
+            </div>
+        </div>
+
+        <!-- Detailed Movement Analysis -->
+        <div class="card">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold text-gray-800">Movement Analysis</h2>
+                <div class="flex items-center space-x-4">
+                    <label class="text-sm font-medium text-gray-600">Timeframe:</label>
+                    <select id="timeframeSelect" onchange="updateData()" class="timeframe-select">
+                        <option value="1H">1 Hour</option>
+                        <option value="2H">2 Hours</option>
+                        <option value="1D">1 Day</option>
+                    </select>
+                </div>
+            </div>
+            <div class="overflow-x-auto rounded-lg border border-gray-200">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead>
+                        <tr>
+                            <th class="table-header">Symbol</th>
+                            <th class="table-header">Movement</th>
+                            <th class="table-header">Change %</th>
+                            <th class="table-header">Pips</th>
+                            <th class="table-header">Volatility</th>
+                            <th class="table-header">Trend</th>
+                        </tr>
+                    </thead>
+                    <tbody id="movementTable" class="divide-y divide-gray-200 bg-white"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function updateMarketData() {
+            const timeframe = document.getElementById('timeframeSelect').value;
+            fetch(`/api/market_movements?timeframe=${timeframe}`)
+                .then(response => response.json())
+                .then(data => {
+                    updateMajorPairsMovement(data.major_pairs);
+                    updateVolatilityChart(data.volatility);
+                    updateSentimentChart(data.sentiment);
+                    updateMovementTable(data.movements);
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function updateData() {
+            updateMarketData();
+        }
+
+        function updateMajorPairsMovement(data) {
+            const container = document.getElementById('majorPairsMovement');
+            container.innerHTML = data.map(pair => `
+                <div class="flex justify-between items-center p-3 rounded-lg ${pair.change >= 0 ? 'bg-emerald-50' : 'bg-rose-50'} transition-all duration-200">
+                    <span class="font-semibold text-gray-800">${pair.symbol}</span>
+                    <div class="flex items-center space-x-2">
+                        <span class="${pair.change >= 0 ? 'movement-up' : 'movement-down'}">
+                            ${pair.change >= 0 ? '↑' : '↓'} ${Math.abs(pair.change).toFixed(2)}%
+                        </span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateVolatilityChart(data) {
+            const trace = {
+                x: data.timestamps,
+                y: data.values,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Volatility',
+                line: {
+                    color: '#4F46E5',
+                    width: 3,
+                    shape: 'spline'
+                },
+                fill: 'tozeroy',
+                fillcolor: 'rgba(79, 70, 229, 0.1)'
+            };
+
+            const layout = {
+                margin: { t: 20, r: 20, l: 40, b: 40 },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                height: 250,
+                xaxis: {
+                    showgrid: false,
+                    showline: true,
+                    linecolor: '#E5E7EB',
+                    tickfont: { size: 10, color: '#6B7280' }
+                },
+                yaxis: {
+                    title: 'Volatility Index',
+                    titlefont: { size: 12, color: '#374151' },
+                    showgrid: true,
+                    gridcolor: '#F3F4F6',
+                    showline: true,
+                    linecolor: '#E5E7EB',
+                    tickfont: { size: 10, color: '#6B7280' }
+                }
+            };
+
+            Plotly.newPlot('volatilityChart', [trace], layout, {
+                displayModeBar: false,
+                responsive: true
+            });
+        }
+
+        function updateSentimentChart(data) {
+            const total = data.bullish + data.bearish + data.neutral;
+            const trace = {
+                values: [data.bullish, data.bearish, data.neutral],
+                labels: ['Bullish', 'Bearish', 'Neutral'],
+                type: 'pie',
+                hole: 0.6,
+                marker: {
+                    colors: ['#10B981', '#EF4444', '#6B7280']
+                },
+                textinfo: 'label+percent',
+                textposition: 'outside',
+                textfont: {
+                    size: 12,
+                    color: '#374151'
+                },
+                hoverinfo: 'label+value+percent'
+            };
+
+            const layout = {
+                margin: { t: 20, r: 20, l: 20, b: 20 },
+                height: 250,
+                showlegend: false,
+                annotations: [{
+                    font: {
+                        size: 14,
+                        color: '#374151',
+                        family: 'Inter'
+                    },
+                    showarrow: false,
+                    text: `Total<br>${total}`,
+                    x: 0.5,
+                    y: 0.5
+                }]
+            };
+
+            Plotly.newPlot('sentimentChart', [trace], layout, {
+                displayModeBar: false,
+                responsive: true
+            });
+        }
+
+        function updateMovementTable(movements) {
+            const tbody = document.getElementById('movementTable');
+            tbody.innerHTML = movements.map(m => `
+                <tr class="hover:bg-gray-50 transition-colors duration-150">
+                    <td class="table-cell font-medium">${m.symbol}</td>
+                    <td class="table-cell text-center">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${m.change >= 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                            ${m.change >= 0 ? '↑' : '↓'}
+                        </span>
+                    </td>
+                    <td class="table-cell text-center ${m.change >= 0 ? 'movement-up' : 'movement-down'}">
+                        ${Math.abs(m.change).toFixed(2)}%
+                    </td>
+                    <td class="table-cell text-center font-medium">${Math.abs(m.pips).toFixed(1)}</td>
+                    <td class="table-cell">
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-indigo-600 h-2 rounded-full" style="width: ${Math.min(m.volatility * 5, 100)}%"></div>
+                        </div>
+                        <span class="text-xs text-gray-600 mt-1 block text-center">${m.volatility.toFixed(2)}</span>
+                    </td>
+                    <td class="table-cell text-center">
+                        <span class="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            ${m.trend === 'up' ? 'bg-emerald-100 text-emerald-800' : 
+                              m.trend === 'down' ? 'bg-rose-100 text-rose-800' : 
+                              'bg-gray-100 text-gray-800'}">
+                            ${m.trend === 'up' ? '📈 Uptrend' : m.trend === 'down' ? '📉 Downtrend' : '➡️ Neutral'}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Initial load
+        updateMarketData();
+        // Update every minute
+        setInterval(updateMarketData, 60000);
+    </script>
+</body>
+</html> 

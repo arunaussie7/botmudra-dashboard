@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Correlation Analysis</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #34495e;
+            --accent-color: #3498db;
+            --success-color: #2ecc71;
+            --danger-color: #e74c3c;
+            --warning-color: #f1c40f;
+            --text-color: #2c3e50;
+            --bg-color: #ecf0f1;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            border: none;
+        }
+
+        .card-header {
+            background: var(--primary-color);
+            color: white;
+            border-radius: 10px 10px 0 0 !important;
+            padding: 15px;
+            font-weight: 600;
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: var(--secondary-color);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-control {
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            padding: 10px;
+        }
+
+        .btn {
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-color);
+            border: none;
+        }
+
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .loading-content {
+            background: white;
+            padding: 20px 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--accent-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-flags {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .loading-flag {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            animation: pulse 1.5s ease-in-out infinite;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            opacity: 0;
+            background-size: cover;
+            background-position: center;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .loading-flag.flag-usd {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23fff" d="M0 0h512v512H0z"/><path fill="%23bf0a30" d="M0 0h512v39.4H0zm0 78.8h512v39.4H0zm0 78.8h512v39.4H0zm0 78.8h512v39.4H0zm0 78.8h512v39.4H0zm0 78.8h512v39.4H0zm0 78.8h512V512H0z"/><path fill="%23002868" d="M0 0h256v275H0z"/><path fill="%23fff" d="M14.2 12l6.1 18.8H3.7l13.4-9.8H7.9l13.4-9z"/></svg>');
+        }
+
+        .loading-flag.flag-eur {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23003399" d="M0 0h512v512H0z"/><circle cx="256" cy="256" r="128" fill="%23ffcc00"/><path fill="%23ffcc00" d="m256 100 18 36 40-4-22 34 22 34-40-4-18 36-18-36-40 4 22-34-22-34 40 4z"/></svg>');
+        }
+
+        .loading-flag.flag-gbp {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23012169" d="M0 0h512v512H0z"/><path fill="%23FFF" d="M512 0v64L322 256l190 187v69h-67L254 324 68 512H0v-68l186-187L0 74V0h62l192 188L440 0z"/><path fill="%23C8102E" d="M184 324l11 34L42 512H0v-3l184-185zm124-12l54 8 150 147v45L308 312zM512 0L320 196l-4-44L466 0h46zM0 1l193 189-59-8L0 49V1z"/><path fill="%23C8102E" d="M176 0v512h160V0H176zM0 176v160h512V176H0z"/></svg>');
+        }
+
+        .loading-flag.flag-jpy {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23fff" d="M0 0h512v512H0z"/><circle cx="256" cy="256" r="128" fill="%23bc002d"/></svg>');
+        }
+
+        .loading-flag.flag-aud {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23012169" d="M0 0h512v512H0z"/><path fill="%23FFF" d="M512 0v64L322 256l190 187v69h-67L254 324 68 512H0v-68l186-187L0 74V0h62l192 188L440 0z"/><path fill="%23E4002B" d="M184 324l11 34L42 512H0v-3l184-185zm124-12l54 8 150 147v45L308 312zM512 0L320 196l-4-44L466 0h46zM0 1l193 189-59-8L0 49V1z"/><path fill="%23FFF" d="M256 64l-32 96h-96l80 64-32 96 80-64 80 64-32-96 80-64h-96z"/></svg>');
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.8); opacity: 0.3; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(0.8); opacity: 0.3; }
+        }
+
+        .loading-flag:nth-child(1) { animation-delay: 0s; }
+        .loading-flag:nth-child(2) { animation-delay: 0.2s; }
+        .loading-flag:nth-child(3) { animation-delay: 0.4s; }
+        .loading-flag:nth-child(4) { animation-delay: 0.6s; }
+        .loading-flag:nth-child(5) { animation-delay: 0.8s; }
+
+        .loading-text {
+            font-size: 1.1em;
+            font-weight: 500;
+            color: var(--accent-color);
+            margin-top: 15px;
+        }
+
+        @keyframes textFade {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        .error-message {
+            color: var(--danger-color);
+            background: rgba(231, 76, 60, 0.1);
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            display: none;
+        }
+
+        .signal-indicator {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .signal-strong {
+            background: rgba(46, 204, 113, 0.2);
+            color: var(--success-color);
+        }
+
+        .signal-weak {
+            background: rgba(231, 76, 60, 0.2);
+            color: var(--danger-color);
+        }
+
+        .signal-moderate {
+            background: rgba(241, 196, 15, 0.2);
+            color: var(--warning-color);
+        }
+
+        .analysis-card {
+            background: var(--card-bg);
+            border-radius: 10px;
+            padding: 20px;
+            height: 100%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .analysis-content {
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--text-color);
+        }
+
+        .analysis-highlight {
+            font-weight: 600;
+            color: var(--accent-color);
+        }
+
+        .analysis-warning {
+            color: var(--warning-color);
+        }
+
+        .analysis-danger {
+            color: var(--danger-color);
+        }
+
+        .analysis-success {
+            color: var(--success-color);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stat-item .stat-label {
+            color: var(--secondary-color);
+            font-size: 0.9em;
+        }
+
+        .stat-item .stat-value {
+            font-weight: 600;
+            color: var(--accent-color);
+        }
+
+        .positive-value {
+            color: var(--success-color) !important;
+        }
+
+        .negative-value {
+            color: var(--danger-color) !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">Correlation Analysis</h4>
+            </div>
+            <div class="card-body">
+                <form id="correlationForm" class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Symbol 1</label>
+                        <select class="form-control" id="pair1" required></select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Symbol 2</label>
+                        <select class="form-control" id="pair2" required></select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Timeframe</label>
+                        <select class="form-control" id="timeframe">
+                            <option value="M1">1 Minute</option>
+                            <option value="M5">5 Minutes</option>
+                            <option value="M15">15 Minutes</option>
+                            <option value="M30">30 Minutes</option>
+                            <option value="H1">1 Hour</option>
+                            <option value="H4" selected>4 Hours</option>
+                            <option value="D1">1 Day</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Analysis Period (Days)</label>
+                        <input type="number" class="form-control" id="analysisPeriod" value="30" min="1" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">RSI Period</label>
+                        <input type="number" class="form-control" id="rsiPeriod" value="14" min="1" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">RSI Overbought</label>
+                        <input type="number" class="form-control" id="rsiOverbought" value="70" min="0" max="100" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">RSI Oversold</label>
+                        <input type="number" class="form-control" id="rsiOversold" value="30" min="0" max="100" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Correlation Entry Threshold</label>
+                        <input type="number" class="form-control" id="corrEntryThreshold" value="0.7" min="0" max="1" step="0.1" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Correlation Exit Threshold</label>
+                        <input type="number" class="form-control" id="corrExitThreshold" value="0.3" min="0" max="1" step="0.1" required>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary">Analyze Correlation</button>
+                    </div>
+                </form>
+
+                <div id="errorMessage" class="error-message"></div>
+
+                <div id="correlationResults" style="display: none;">
+                    <div class="stats-container">
+                        <div class="stat-card">
+                            <div class="stat-value" id="priceCorrelation">0.00</div>
+                            <div class="stat-label">Price Correlation</div>
+                            <div id="priceCorrelationSignal" class="signal-indicator"></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="rsiCorrelation">0.00</div>
+                            <div class="stat-label">RSI Correlation</div>
+                            <div id="rsiCorrelationSignal" class="signal-indicator"></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="returnsCorrelation">0.00</div>
+                            <div class="stat-label">Returns Correlation</div>
+                            <div id="returnsCorrelationSignal" class="signal-indicator"></div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalSignals">0</div>
+                            <div class="stat-label">Total Signals</div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="analysis-card">
+                                <h5 id="stats1Title">Statistics for Symbol 1</h5>
+                                <div class="stats-grid">
+                                    <div class="stat-item">
+                                        <span class="stat-label">Current Price:</span>
+                                        <span id="stats1CurrentPrice" class="stat-value">0.00</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Price Change:</span>
+                                        <span id="stats1PriceChange" class="stat-value">0.00%</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Mean:</span>
+                                        <span id="stats1Mean" class="stat-value">0.00</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Std Dev:</span>
+                                        <span id="stats1Std" class="stat-value">0.00</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Min:</span>
+                                        <span id="stats1Min" class="stat-value">0.00</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Max:</span>
+                                        <span id="stats1Max" class="stat-value">0.00</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Volatility:</span>
+                                        <span id="stats1Volatility" class="stat-value">0.00%</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Sharpe Ratio:</span>
+                                        <span id="stats1Sharpe" class="stat-value">0.00</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Skewness:</span>
+                                        <span id="stats1Skewness" class="stat-value">0.00</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Kurtosis:</span>
+                                        <span id="stats1Kurtosis" class="stat-value">0.00</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="analysis-card">
+                                <h5 id="stats2Title">Statistics for Symbol 2</h5>
+                                <div class="stats-grid">
+                                    <div class="stat-item">
+                                        <span class="stat-label">Current Price:</span>
+                                        <span id="stats2CurrentPrice" class="stat-value">0.00</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Price Change:</span>
+                                        <span id="stats2PriceChange" class="stat-value">0.00%</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Mean:</span>
+                                        <span id="stats2Mean" class="stat-value">0.00</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Std Dev:</span>
+                                        <span id="stats2Std" class="stat-value">0.00</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Min:</span>
+                                        <span id="stats2Min" class="stat-value">0.00</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Max:</span>
+                                        <span id="stats2Max" class="stat-value">0.00</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Volatility:</span>
+                                        <span id="stats2Volatility" class="stat-value">0.00%</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Sharpe Ratio:</span>
+                                        <span id="stats2Sharpe" class="stat-value">0.00</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Skewness:</span>
+                                        <span id="stats2Skewness" class="stat-value">0.00</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Kurtosis:</span>
+                                        <span id="stats2Kurtosis" class="stat-value">0.00</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-8">
+                            <div class="chart-container">
+                                <canvas id="priceChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="analysis-card">
+                                <h5>Price Analysis</h5>
+                                <div id="priceAnalysis" class="analysis-content"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-8">
+                            <div class="chart-container">
+                                <canvas id="rsiChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="analysis-card">
+                                <h5>RSI Analysis</h5>
+                                <div id="rsiAnalysis" class="analysis-content"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-8">
+                            <div class="chart-container">
+                                <canvas id="correlationChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="analysis-card">
+                                <h5>Correlation Analysis</h5>
+                                <div id="correlationAnalysis" class="analysis-content"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingOverlay" class="loading" style="display: none;">
+        <div class="loading-content">
+            <div class="loading-flags">
+                <div class="loading-flag flag-usd"></div>
+                <div class="loading-flag flag-eur"></div>
+                <div class="loading-flag flag-gbp"></div>
+                <div class="loading-flag flag-jpy"></div>
+                <div class="loading-flag flag-aud"></div>
+            </div>
+            <div class="loading-text" id="loadingText">Analyzing market correlations...</div>
+        </div>
+    </div>
+
+    <script>
+        let priceChart = null;
+        let rsiChart = null;
+        let correlationChart = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSymbols();
+            document.getElementById('correlationForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                analyzeCorrelation();
+            });
+        });
+
+        function loadSymbols() {
+            showLoading();
+            fetch('/get_symbols')
+                .then(response => response.json())
+                .then(symbols => {
+                    const symbolSelects = ['pair1', 'pair2'];
+                    symbolSelects.forEach(selectId => {
+                        const select = document.getElementById(selectId);
+                        select.innerHTML = '';
+                        symbols.forEach(symbol => {
+                            const option = document.createElement('option');
+                            option.value = symbol;
+                            option.textContent = symbol;
+                            select.appendChild(option);
+                        });
+                    });
+                    hideLoading();
+                })
+                .catch(error => {
+                    console.error('Error loading symbols:', error);
+                    showError('Failed to load currency pairs. Please refresh the page.');
+                    hideLoading();
+                });
+        }
+
+        function analyzeCorrelation() {
+            const data = {
+                pair1: document.getElementById('pair1').value,
+                pair2: document.getElementById('pair2').value,
+                timeframe: document.getElementById('timeframe').value,
+                analysis_period: parseInt(document.getElementById('analysisPeriod').value),
+                rsi_period: parseInt(document.getElementById('rsiPeriod').value),
+                rsi_overbought: parseFloat(document.getElementById('rsiOverbought').value),
+                rsi_oversold: parseFloat(document.getElementById('rsiOversold').value),
+                corr_entry_threshold: parseFloat(document.getElementById('corrEntryThreshold').value),
+                corr_exit_threshold: parseFloat(document.getElementById('corrExitThreshold').value)
+            };
+
+            console.log('Sending request with data:', data);
+            showLoading();
+            hideError();
+
+            fetch('/analyze_correlation', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        throw new Error(`Analysis failed (${response.status}): ${text}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(result => {
+                console.log('Received response:', result);
+                if (!result || typeof result !== 'object') {
+                    throw new Error('Invalid response format from server');
+                }
+                
+                if (!result.timestamps || !result.prices1 || !result.prices2) {
+                    throw new Error('Missing required data in server response');
+                }
+
+                hideLoading();
+                document.getElementById('correlationResults').style.display = 'block';
+
+                // Update statistics
+                updateStatistics(result);
+
+                // Update charts
+                updateCharts(result);
+            })
+            .catch(error => {
+                hideLoading();
+                console.error('Error in correlation analysis:', error);
+                showError(`Analysis failed: ${error.message}. Please check the console for more details.`);
+            });
+        }
+
+        function updateStatistics(data) {
+            try {
+                console.log('Updating statistics with data:', data);
+                
+                // Update correlations with null checks
+                document.getElementById('priceCorrelation').textContent = 
+                    (data.price_correlation != null ? (data.price_correlation * 100).toFixed(2) : '0.00') + '%';
+                document.getElementById('rsiCorrelation').textContent = 
+                    (data.rsi_correlation != null ? (data.rsi_correlation * 100).toFixed(2) : '0.00') + '%';
+                document.getElementById('returnsCorrelation').textContent = 
+                    (data.returns_correlation != null ? (data.returns_correlation * 100).toFixed(2) : '0.00') + '%';
+                
+                // Update signals count
+                document.getElementById('totalSignals').textContent = 
+                    data.stats && data.stats.total_signals != null ? data.stats.total_signals : '0';
+
+                // Update correlation signals with null checks
+                if (data.price_correlation != null) updateCorrelationSignal('priceCorrelationSignal', data.price_correlation);
+                if (data.rsi_correlation != null) updateCorrelationSignal('rsiCorrelationSignal', data.rsi_correlation);
+                if (data.returns_correlation != null) updateCorrelationSignal('returnsCorrelationSignal', data.returns_correlation);
+
+                // Update pair statistics
+                const pair1 = document.getElementById('pair1').value;
+                const pair2 = document.getElementById('pair2').value;
+                
+                document.getElementById('stats1Title').textContent = `Statistics for ${pair1}`;
+                document.getElementById('stats2Title').textContent = `Statistics for ${pair2}`;
+
+                if (data.pair1_stats) updatePairStats('1', data.pair1_stats);
+                if (data.pair2_stats) updatePairStats('2', data.pair2_stats);
+                
+            } catch (error) {
+                console.error('Error updating statistics:', error);
+                showError('Error updating statistics. Check console for details.');
+            }
+        }
+
+        function updatePairStats(pairNum, stats) {
+            try {
+                if (!stats) {
+                    console.error(`No stats provided for pair ${pairNum}`);
+                    return;
+                }
+
+                const setStatValue = (id, value, decimals = 5, isPercentage = false) => {
+                    const elem = document.getElementById(`stats${pairNum}${id}`);
+                    if (elem) {
+                        const formattedValue = value != null ? 
+                            (isPercentage ? (value * 100).toFixed(2) + '%' : value.toFixed(decimals)) : 
+                            '0.00' + (isPercentage ? '%' : '');
+                        elem.textContent = formattedValue;
+                    }
+                };
+
+                setStatValue('CurrentPrice', stats.current_price);
+                
+                const priceChangeElem = document.getElementById(`stats${pairNum}PriceChange`);
+                if (priceChangeElem) {
+                    const priceChange = stats.price_change || 0;
+                    priceChangeElem.textContent = priceChange.toFixed(2) + '%';
+                    priceChangeElem.className = `stat-value ${priceChange >= 0 ? 'positive-value' : 'negative-value'}`;
+                }
+
+                setStatValue('Mean', stats.mean);
+                setStatValue('Std', stats.std);
+                setStatValue('Min', stats.min);
+                setStatValue('Max', stats.max);
+                setStatValue('Volatility', stats.volatility, 2, true);
+                setStatValue('Sharpe', stats.sharpe, 2);
+                setStatValue('Skewness', stats.skewness, 2);
+                setStatValue('Kurtosis', stats.kurtosis, 2);
+                
+            } catch (error) {
+                console.error(`Error updating stats for pair ${pairNum}:`, error);
+            }
+        }
+
+        function updateCorrelationSignal(elementId, correlation) {
+            const element = document.getElementById(elementId);
+            const absCorr = Math.abs(correlation);
+            const entryThreshold = parseFloat(document.getElementById('corrEntryThreshold').value);
+            const exitThreshold = parseFloat(document.getElementById('corrExitThreshold').value);
+
+            element.className = 'signal-indicator';
+            if (absCorr >= entryThreshold) {
+                element.classList.add('signal-strong');
+                element.textContent = 'Strong Correlation';
+            } else if (absCorr <= exitThreshold) {
+                element.classList.add('signal-weak');
+                element.textContent = 'Weak Correlation';
+            } else {
+                element.classList.add('signal-moderate');
+                element.textContent = 'Moderate Correlation';
+            }
+        }
+
+        function updateCharts(data) {
+            // Destroy existing charts
+            if (priceChart) priceChart.destroy();
+            if (rsiChart) rsiChart.destroy();
+            if (correlationChart) correlationChart.destroy();
+
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    }
+                }
+            };
+
+            // Create price chart
+            priceChart = new Chart(document.getElementById('priceChart'), {
+                type: 'line',
+                data: {
+                    labels: data.timestamps,
+                    datasets: [{
+                        label: document.getElementById('pair1').value,
+                        data: data.prices1,
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1
+                    }, {
+                        label: document.getElementById('pair2').value,
+                        data: data.prices2,
+                        borderColor: 'rgb(255, 99, 132)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    ...chartOptions,
+                    plugins: {
+                        ...chartOptions.plugins,
+                        title: {
+                            display: true,
+                            text: 'Price Comparison'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left'
+                        }
+                    }
+                }
+            });
+
+            // Create RSI chart
+            const rsiOverbought = parseFloat(document.getElementById('rsiOverbought').value);
+            const rsiOversold = parseFloat(document.getElementById('rsiOversold').value);
+
+            rsiChart = new Chart(document.getElementById('rsiChart'), {
+                type: 'line',
+                data: {
+                    labels: data.timestamps,
+                    datasets: [{
+                        label: document.getElementById('pair1').value + ' RSI',
+                        data: data.rsi1,
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1
+                    }, {
+                        label: document.getElementById('pair2').value + ' RSI',
+                        data: data.rsi2,
+                        borderColor: 'rgb(255, 99, 132)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    ...chartOptions,
+                    plugins: {
+                        ...chartOptions.plugins,
+                        title: {
+                            display: true,
+                            text: 'RSI Comparison'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            min: 0,
+                            max: 100,
+                            grid: {
+                                color: function(context) {
+                                    if (context.tick.value === rsiOversold || context.tick.value === rsiOverbought) {
+                                        return 'rgba(255, 0, 0, 0.2)';
+                                    }
+                                    return 'rgba(0, 0, 0, 0.1)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Create correlation chart
+            const entryThreshold = parseFloat(document.getElementById('corrEntryThreshold').value);
+            const exitThreshold = parseFloat(document.getElementById('corrExitThreshold').value);
+
+            correlationChart = new Chart(document.getElementById('correlationChart'), {
+                type: 'line',
+                data: {
+                    labels: data.timestamps,
+                    datasets: [{
+                        label: 'Rolling Correlation',
+                        data: data.rolling_correlation,
+                        borderColor: 'rgb(153, 102, 255)',
+                        tension: 0.1,
+                        fill: {
+                            target: 'origin',
+                            above: 'rgba(153, 102, 255, 0.2)',
+                            below: 'rgba(255, 99, 132, 0.2)'
+                        }
+                    }]
+                },
+                options: {
+                    ...chartOptions,
+                    plugins: {
+                        ...chartOptions.plugins,
+                        title: {
+                            display: true,
+                            text: 'Price Correlation'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            min: -1,
+                            max: 1,
+                            grid: {
+                                color: function(context) {
+                                    if (context.tick.value === entryThreshold || 
+                                        context.tick.value === -entryThreshold ||
+                                        context.tick.value === exitThreshold || 
+                                        context.tick.value === -exitThreshold) {
+                                        return 'rgba(255, 0, 0, 0.2)';
+                                    }
+                                    return 'rgba(0, 0, 0, 0.1)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Update analysis text
+            updatePriceAnalysis(data);
+            updateRSIAnalysis(data);
+            updateCorrelationAnalysis(data);
+        }
+
+        function updatePriceAnalysis(data) {
+            const pair1 = document.getElementById('pair1').value;
+            const pair2 = document.getElementById('pair2').value;
+            const priceCorr = data.price_correlation;
+            
+            let analysis = `<p>Analyzing price relationship between <span class="analysis-highlight">${pair1}</span> and 
+                            <span class="analysis-highlight">${pair2}</span>:</p>`;
+            
+            if (Math.abs(priceCorr) > 0.7) {
+                analysis += `<p class="analysis-success">Strong ${priceCorr > 0 ? 'positive' : 'negative'} correlation (${(priceCorr * 100).toFixed(2)}%)</p>`;
+            } else if (Math.abs(priceCorr) > 0.3) {
+                analysis += `<p class="analysis-warning">Moderate ${priceCorr > 0 ? 'positive' : 'negative'} correlation (${(priceCorr * 100).toFixed(2)}%)</p>`;
+            } else {
+                analysis += `<p class="analysis-danger">Weak correlation (${(priceCorr * 100).toFixed(2)}%)</p>`;
+            }
+
+            analysis += `<p>This suggests that these pairs ${Math.abs(priceCorr) > 0.7 ? 'have a strong tendency to move together' : 
+                        Math.abs(priceCorr) > 0.3 ? 'show some relationship in their movements' : 'move largely independently'}.</p>`;
+
+            document.getElementById('priceAnalysis').innerHTML = analysis;
+        }
+
+        function updateRSIAnalysis(data) {
+            const pair1 = document.getElementById('pair1').value;
+            const pair2 = document.getElementById('pair2').value;
+            const rsiCorr = data.rsi_correlation;
+            const rsi1 = data.rsi1[data.rsi1.length - 1];
+            const rsi2 = data.rsi2[data.rsi2.length - 1];
+            
+            let analysis = `<p>RSI Analysis for <span class="analysis-highlight">${pair1}</span> and 
+                            <span class="analysis-highlight">${pair2}</span>:</p>`;
+            
+            analysis += `<p>Current RSI Values:<br>
+                        ${pair1}: <span class="${getRSIClass(rsi1)}">${rsi1.toFixed(2)}</span><br>
+                        ${pair2}: <span class="${getRSIClass(rsi2)}">${rsi2.toFixed(2)}</span></p>`;
+            
+            analysis += `<p>RSI Correlation: <span class="${getCorrelationClass(rsiCorr)}">${(rsiCorr * 100).toFixed(2)}%</span></p>`;
+            
+            analysis += `<p>Momentum alignment: ${Math.abs(rsiCorr) > 0.7 ? 'Strong' : 
+                        Math.abs(rsiCorr) > 0.3 ? 'Moderate' : 'Weak'} ${rsiCorr > 0 ? 'positive' : 'negative'} relationship</p>`;
+
+            document.getElementById('rsiAnalysis').innerHTML = analysis;
+        }
+
+        function updateCorrelationAnalysis(data) {
+            const currentCorr = data.stats.current_correlation;
+            const entryThreshold = parseFloat(document.getElementById('corrEntryThreshold').value);
+            const exitThreshold = parseFloat(document.getElementById('corrExitThreshold').value);
+            
+            let analysis = `<p>Rolling Correlation Analysis:</p>`;
+            
+            analysis += `<p>Current Correlation: <span class="${getCorrelationClass(currentCorr)}">${(currentCorr * 100).toFixed(2)}%</span></p>`;
+            
+            analysis += `<p>Signal Statistics:<br>
+                        Total Signals: ${data.stats.total_signals}<br>
+                        Average Duration: ${data.stats.avg_duration.toFixed(1)} periods<br>
+                        Max Duration: ${data.stats.max_duration.toFixed(1)} periods</p>`;
+            
+            if (Math.abs(currentCorr) >= entryThreshold) {
+                analysis += `<p class="analysis-success">Strong correlation detected - potential trading opportunity</p>`;
+            } else if (Math.abs(currentCorr) <= exitThreshold) {
+                analysis += `<p class="analysis-danger">Weak correlation - consider closing positions</p>`;
+            } else {
+                analysis += `<p class="analysis-warning">Moderate correlation - monitor for changes</p>`;
+            }
+
+            document.getElementById('correlationAnalysis').innerHTML = analysis;
+        }
+
+        function getRSIClass(value) {
+            if (value >= 70) return 'analysis-danger';
+            if (value <= 30) return 'analysis-success';
+            return 'analysis-warning';
+        }
+
+        function getCorrelationClass(value) {
+            if (Math.abs(value) >= 0.7) return 'analysis-success';
+            if (Math.abs(value) >= 0.3) return 'analysis-warning';
+            return 'analysis-danger';
+        }
+
+        function showLoading() {
+            const loadingTexts = [
+                "Analyzing market correlations...",
+                "Calculating price relationships...",
+                "Processing currency patterns...",
+                "Detecting trading opportunities...",
+                "Evaluating market dynamics..."
+            ];
+            let currentTextIndex = 0;
+            document.getElementById('loadingOverlay').style.display = 'flex';
+            
+            // Start text animation
+            const textInterval = setInterval(() => {
+                document.getElementById('loadingText').textContent = loadingTexts[currentTextIndex];
+                currentTextIndex = (currentTextIndex + 1) % loadingTexts.length;
+            }, 2000);
+
+            // Store the interval ID for cleanup
+            window.loadingTextInterval = textInterval;
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').style.display = 'none';
+            // Clear the text animation interval
+            if (window.loadingTextInterval) {
+                clearInterval(window.loadingTextInterval);
+            }
+        }
+
+        function showError(message) {
+            const errorElement = document.getElementById('errorMessage');
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+
+        function hideError() {
+            document.getElementById('errorMessage').style.display = 'none';
+        }
+    </script>
+</body>
+</html> 

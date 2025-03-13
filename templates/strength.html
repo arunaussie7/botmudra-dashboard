@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Currency Strength Meter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9;
+        }
+        .chart-container {
+            height: 450px;
+            width: 100%;
+            @apply rounded-lg overflow-hidden;
+        }
+        .currency-table {
+            @apply w-full text-base border-separate border-spacing-0;
+        }
+        .currency-table th {
+            @apply px-6 py-4 text-left text-gray-700 font-bold bg-gray-50 text-base border-b-2 border-gray-200;
+        }
+        .currency-table td {
+            @apply px-6 py-4 border-b border-gray-200 text-base;
+        }
+        .timeframe-btn {
+            @apply px-3 py-1.5 rounded text-sm font-extrabold bg-white text-gray-900 hover:bg-gray-50 transition-colors border border-gray-200;
+        }
+        .timeframe-btn.active {
+            @apply bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700;
+        }
+        .refresh-btn {
+            @apply px-4 py-1.5 rounded text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors border-0 shadow-sm;
+        }
+        .refresh-btn svg {
+            @apply w-3.5 h-3.5;
+        }
+        .refresh-btn.spinning svg {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .scrollbar-thin {
+            scrollbar-width: thin;
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 3px;
+        }
+        .table-section {
+            @apply mb-12;
+        }
+        .table-container {
+            @apply relative overflow-hidden rounded-lg border border-gray-200;
+        }
+        .table-container::after {
+            content: '';
+            @apply absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white to-transparent pointer-events-none;
+        }
+        .table-container.expanded::after {
+            @apply hidden;
+        }
+        .show-more-btn {
+            @apply mt-4 w-full py-2 text-sm font-semibold text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200;
+        }
+        .currency-info {
+            @apply mt-2 text-sm text-gray-500;
+        }
+        .currency-detail {
+            @apply flex items-center gap-2 text-sm text-gray-600 mt-1;
+        }
+        .currency-flag {
+            width: 20px;
+            height: 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 8px;
+            border-radius: 50%;
+            background-size: cover;
+            background-position: center;
+            vertical-align: middle;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        .flag-jpy {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23fff" d="M0 0h512v512H0z"/><circle cx="256" cy="256" r="128" fill="%23bc002d"/></svg>');
+        }
+        .flag-usd {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23fff" d="M0 0h512v512H0z"/><path fill="%23bf0a30" d="M0 0h512v39.4H0zm0 78.8h512v39.4H0zm0 78.8h512v39.4H0zm0 78.8h512v39.4H0zm0 78.8h512v39.4H0zm0 78.8h512v39.4H0zm0 78.8h512V512H0z"/><path fill="%23002868" d="M0 0h256v275H0z"/><path fill="%23fff" d="M14.2 12l6.1 18.8H3.7l13.4-9.8H7.9l13.4-9z"/></svg>');
+        }
+        .flag-try {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23e30a17" d="M0 0h512v512H0z"/><circle cx="256" cy="256" r="128" fill="%23fff"/><circle cx="296" cy="256" r="96" fill="%23e30a17"/><path fill="%23fff" d="m355.7 256-100 40.9v-81.8z"/></svg>');
+        }
+        .flag-eur {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23003399" d="M0 0h512v512H0z"/><circle cx="256" cy="256" r="128" fill="%23ffcc00"/><path fill="%23ffcc00" d="m256 100 18 36 40-4-22 34 22 34-40-4-18 36-18-36-40 4 22-34-22-34 40 4z"/></svg>');
+        }
+        .flag-nok {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23ef2b2d" d="M0 0h512v512H0z"/><path fill="%23fff" d="M128 0h85.3v512H128z"/><path fill="%23fff" d="M0 213.3h512v85.3H0z"/><path fill="%23002868" d="M149.3 0h42.7v512h-42.7z"/><path fill="%23002868" d="M0 234.7h512v42.7H0z"/></svg>');
+        }
+        .flag-nzd {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23012169" d="M0 0h512v512H0z"/><path fill="%23fff" d="M256 0v32l-95 96h95v64H96l-96 96v-96L96 96V0h160z"/><path fill="%23c8102e" d="M288 0v32l95 96h-95v64h160l96 96v-96l-96-96V0H288z"/><path fill="%23fff" d="m416 288-96-96H160l-96 96v96l96-96h160l96 96z"/><path fill="%23c8102e" d="M416 288v96H288l-32-32-32 32H96v-96h128l32 32 32-32h128z"/></svg>');
+        }
+        .flag-hkd {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23de2910" d="M0 0h512v512H0z"/><path fill="%23fff" d="M256 128c-70.7 0-128 57.3-128 128s57.3 128 128 128 128-57.3 128-128-57.3-128-128-128zm0 224c-52.9 0-96-43.1-96-96s43.1-96 96-96 96 43.1 96 96-43.1 96-96 96z"/></svg>');
+        }
+        .flag-cny {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23de2910" d="M0 0h512v512H0z"/><path fill="%23ffde00" d="m140 128 12 38H96l36 26-14 42 38-27 38 27-14-42 36-26h-56l12-38zm168-32 6 19h-28l18 13-7 21 19-14 19 14-7-21 18-13h-28l6-19zm56 48 6 19h-28l18 13-7 21 19-14 19 14-7-21 18-13h-28l6-19zm0 64 6 19h-28l18 13-7 21 19-14 19 14-7-21 18-13h-28l6-19zm-56 48 6 19h-28l18 13-7 21 19-14 19 14-7-21 18-13h-28l6-19z"/></svg>');
+        }
+        .flag-zar {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23de3831" d="M0 0h512v170.7H0z"/><path fill="%23002395" d="M0 341.3h512V512H0z"/><path fill="%23fff" d="M0 170.7h512v170.6H0z"/><path fill="%23007a4d" d="M0 181.3v149.4l256-74.7z"/><path d="M0 181.3 256 256 0 330.7z"/></svg>');
+        }
+        .flag-gbp {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23012169" d="M0 0h512v512H0z"/><path fill="%23FFF" d="M512 0v64L322 256l190 187v69h-67L254 324 68 512H0v-68l186-187L0 74V0h62l192 188L440 0z"/><path fill="%23C8102E" d="M184 324l11 34L42 512H0v-3l184-185zm124-12l54 8 150 147v45L308 312zM512 0L320 196l-4-44L466 0h46zM0 1l193 189-59-8L0 49V1z"/><path fill="%23C8102E" d="M176 0v512h160V0H176zM0 176v160h512V176H0z"/></svg>');
+        }
+        .flag-chf {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23D52B1E" d="M0 0h512v512H0z"/><path fill="%23fff" d="M96 208h320v96H96z"/><path fill="%23fff" d="M208 96h96v320h-96z"/></svg>');
+        }
+        .flag-aud {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23012169" d="M0 0h512v512H0z"/><path fill="%23FFF" d="M512 0v64L322 256l190 187v69h-67L254 324 68 512H0v-68l186-187L0 74V0h62l192 188L440 0z"/><path fill="%23E4002B" d="M184 324l11 34L42 512H0v-3l184-185zm124-12l54 8 150 147v45L308 312zM512 0L320 196l-4-44L466 0h46zM0 1l193 189-59-8L0 49V1z"/><path fill="%23FFF" d="M256 64l-32 96h-96l80 64-32 96 80-64 80 64-32-96 80-64h-96z"/></svg>');
+        }
+        .flag-cad {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23FFF" d="M0 0h512v512H0z"/><path fill="%23D52B1E" d="M0 0h128v512H0zm384 0h128v512H384zM192 278.261l128-64v83.478l-128-64v83.479l128 64v-83.479z"/><path fill="%23D52B1E" d="M256 64l-32 96h-96l80 64-32 96 80-64 80 64-32-96 80-64h-96z"/></svg>');
+        }
+        .flag-sgd {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23FFF" d="M0 0h512v256H0z"/><path fill="%23D52B1E" d="M0 256h512v256H0z"/><circle cx="128" cy="128" r="64" fill="%23D52B1E"/><path fill="%23FFF" d="M160 128l-16-16-16 16-16-16 16 48h32l16-48z"/><path fill="%23FFF" d="M128 96l4.8 14.4L144 96l-11.2 14.4L144 120l-16-4.8L112 120l11.2-9.6L112 96l14.4 14.4z"/></svg>');
+        }
+        .flag-sek {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23006AA7" d="M0 0h512v512H0z"/><path fill="%23FECC00" d="M128 0h96v512h-96z"/><path fill="%23FECC00" d="M0 208h512v96H0z"/></svg>');
+        }
+        .flag-mxn {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23FFF" d="M0 0h512v512H0z"/><path fill="%23006847" d="M0 0h170.7v512H0z"/><path fill="%23CE1126" d="M341.3 0H512v512H341.3z"/><circle cx="256" cy="256" r="64" fill="%23006847"/></svg>');
+        }
+        .flag-inr {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23FF9933" d="M0 0h512v170.7H0z"/><path fill="%23FFF" d="M0 170.7h512v170.6H0z"/><path fill="%23138808" d="M0 341.3h512V512H0z"/><circle cx="256" cy="256" r="48" fill="%23000080"/></svg>');
+        }
+        .flag-brl {
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="%23009B3A" d="M0 0h512v512H0z"/><path fill="%23FEDF00" d="M256 448L48 256l208-192 208 192z"/><circle cx="256" cy="256" r="96" fill="%23002776"/><path fill="%23FFF" d="M256 160c-88 0-144 48-144 96s56 96 144 96 144-48 144-96-56-96-144-96z"/></svg>');
+        }
+    </style>
+</head>
+<body class="min-h-screen py-8">
+    <div class="container mx-auto px-4 max-w-7xl">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-6">
+            <h1 class="text-3xl font-black text-gray-900">Currency Strength Meter</h1>
+            <div class="flex items-center gap-4">
+                <div class="text-sm text-gray-500" id="lastUpdate"></div>
+                <div class="flex items-center gap-2">
+                    <button class="timeframe-btn text-base font-extrabold" data-timeframe="1D">1D</button>
+                    <button class="timeframe-btn text-base font-extrabold" data-timeframe="4H">4H</button>
+                    <button id="refreshBtn" class="refresh-btn">Refresh</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="grid grid-cols-12 gap-6">
+            <!-- Left Column -->
+            <div class="col-span-8">
+                <!-- Strength Chart -->
+                <div class="card p-6 mb-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-extrabold text-gray-900">Currency Strength Chart</h2>
+                        <button class="refresh-btn" onclick="updateStrengthMeter()">Refresh</button>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="strengthChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Analysis Grid -->
+                <div class="grid grid-cols-1 gap-6">
+                    <!-- Strongest Pairs -->
+                    <div class="card">
+                        <div class="flex items-center justify-between mb-8">
+                            <h2 class="text-xl font-extrabold text-gray-900">Strongest Currency Pairs</h2>
+                            <button class="refresh-btn" onclick="updateStrongestPairs()">
+                                <svg class="w-4 h-4 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                </svg>
+                                Refresh
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="currency-table">
+                                <thead>
+                                    <tr>
+                                        <th class="rounded-tl-lg w-1/5 sticky top-0 bg-gray-50 z-10">Symbol</th>
+                                        <th class="text-center w-1/5 sticky top-0 bg-gray-50 z-10">Change %</th>
+                                        <th class="text-center w-1/5 sticky top-0 bg-gray-50 z-10">Pips</th>
+                                        <th class="text-center w-1/5 sticky top-0 bg-gray-50 z-10">Status</th>
+                                        <th class="rounded-tr-lg text-right w-1/5 sticky top-0 bg-gray-50 z-10">Price</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="strongestPairs"></tbody>
+                            </table>
+                        </div>
+                        <div id="pairsError" class="text-rose-600 mt-6 text-center hidden"></div>
+                        <div id="pairsLoading" class="text-gray-500 mt-6 text-center">Loading pairs data...</div>
+                        <button class="show-more-btn mt-4" id="showMorePairs" onclick="togglePairsTable()">
+                            Show More
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div class="col-span-4 space-y-6">
+                <!-- Currency Status -->
+                <div class="card">
+                    <h2 class="text-2xl font-extrabold text-gray-900 mb-8">Currency Status</h2>
+                    
+                    <!-- Currency Table -->
+                    <div class="table-section">
+                        <div class="rounded-lg border border-gray-200" id="currencyTableContainer">
+                            <table class="currency-table">
+                                <thead>
+                                    <tr>
+                                        <th class="rounded-tl-lg w-1/4 bg-gray-50">Currency</th>
+                                        <th class="text-center w-1/4 bg-gray-50">Strength</th>
+                                        <th class="text-center w-1/4 bg-gray-50">Status</th>
+                                        <th class="rounded-tr-lg text-center w-1/4 bg-gray-50">Change</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="currencyTableBody"></tbody>
+                            </table>
+                        </div>
+                        <button class="show-more-btn mt-2" id="showMoreCurrencies" onclick="toggleCurrencyTable()">
+                            Show More
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Top Pair Analysis -->
+                <div class="card">
+                    <div class="flex items-center justify-between mb-4 pb-3 border-b border-gray-200">
+                        <h2 class="text-xl font-extrabold text-gray-900">Top Pair Analysis</h2>
+                        <span class="text-sm text-gray-500" id="topPairTime"></span>
+                    </div>
+                    <div class="mb-6">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-4 pb-3 border-b border-gray-200" id="topPairSymbol"></h3>
+                        <div class="grid grid-cols-2 gap-4 mb-6">
+                            <div class="bg-gray-50 rounded-lg p-4 border-r border-gray-200">
+                                <div class="text-sm text-gray-500 mb-1">Change %</div>
+                                <div id="topPairChange" class="text-lg font-semibold"></div>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <div class="text-sm text-gray-500 mb-1">Pips</div>
+                                <div id="topPairPips" class="text-lg font-semibold"></div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-4 mb-6 border-b border-gray-200">
+                            <h4 class="text-sm font-medium text-gray-700 mb-2 pb-2 border-b border-gray-200">Analysis</h4>
+                            <p id="topPairAnalysisText" class="text-sm text-gray-600 leading-relaxed"></p>
+                        </div>
+                    </div>
+                    <div class="h-48 pt-4 border-t border-gray-200">
+                        <canvas id="percentageChangeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let strengthChart = null;
+        const MAJOR_CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'AUD', 'NZD', 'CAD', 'CHF'];
+        const MINOR_CURRENCIES = ['SEK', 'NOK', 'SGD', 'HKD', 'TRY', 'ZAR', 'MXN', 'CNY', 'INR', 'BRL'];
+        let currentTimeframe = '1D';
+        let isRefreshing = false;
+        let percentageChangeChart = null;
+
+        // Update currency to flag mapping with CSS classes
+        const CURRENCY_FLAGS = {
+            'EUR': '<span class="currency-flag flag-eur"></span>',
+            'GBP': '<span class="currency-flag flag-gbp"></span>',
+            'CHF': '<span class="currency-flag flag-chf"></span>',
+            'NZD': '<span class="currency-flag flag-nzd"></span>',
+            'AUD': '<span class="currency-flag flag-aud"></span>',
+            'USD': '<span class="currency-flag flag-usd"></span>',
+            'JPY': '<span class="currency-flag flag-jpy"></span>',
+            'CAD': '<span class="currency-flag flag-cad"></span>',
+            'SEK': '<span class="currency-flag flag-sek"></span>',
+            'NOK': '<span class="currency-flag flag-nok"></span>',
+            'SGD': '<span class="currency-flag flag-sgd"></span>',
+            'HKD': '<span class="currency-flag flag-hkd"></span>',
+            'TRY': '<span class="currency-flag flag-try"></span>',
+            'ZAR': '<span class="currency-flag flag-zar"></span>',
+            'MXN': '<span class="currency-flag flag-mxn"></span>',
+            'CNY': '<span class="currency-flag flag-cny"></span>',
+            'INR': '<span class="currency-flag flag-inr"></span>',
+            'BRL': '<span class="currency-flag flag-brl"></span>'
+        };
+
+        // Initialize refresh button
+        const refreshBtn = document.getElementById('refreshBtn');
+        refreshBtn.addEventListener('click', () => {
+            if (isRefreshing) return;
+            isRefreshing = true;
+            refreshBtn.classList.add('spinning');
+            
+            Promise.all([
+                updateStrengthMeter(),
+                updateStrongestPairs(),
+                updateAccountInfo()
+            ]).finally(() => {
+                setTimeout(() => {
+                    refreshBtn.classList.remove('spinning');
+                    isRefreshing = false;
+                }, 500);
+            });
+        });
+
+        // Initialize timeframe buttons
+        document.querySelectorAll('.timeframe-btn').forEach(btn => {
+            if (btn.dataset.timeframe === currentTimeframe) {
+                btn.classList.add('active');
+            }
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.timeframe-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentTimeframe = btn.dataset.timeframe;
+                updateStrengthMeter();
+            });
+        });
+
+        function updateStrengthMeter() {
+            return fetch(`/api/currency_strength?timeframe=${currentTimeframe}`)
+                .then(response => response.json())
+                .then(data => {
+                    const latestData = data[data.length - 1];
+                    
+                    document.getElementById('lastUpdate').textContent = 
+                        `Last Update (${latestData.timeframe}): ` + new Date(latestData.timestamp).toLocaleTimeString();
+                    
+                    const allCurrencies = [...MAJOR_CURRENCIES, ...MINOR_CURRENCIES];
+                    const strengths = allCurrencies.map(curr => ({
+                        currency: curr,
+                        flag: CURRENCY_FLAGS[curr],
+                        strength: latestData[curr]
+                    }));
+                    
+                    strengths.sort((a, b) => b.strength - a.strength);
+
+                    if (strengthChart) {
+                        strengthChart.destroy();
+                    }
+
+                    const ctx = document.getElementById('strengthChart').getContext('2d');
+                    strengthChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: strengths.map(s => s.currency),
+                            datasets: [{
+                                label: `Strength (${currentTimeframe})`,
+                                data: strengths.map(s => s.strength),
+                                backgroundColor: strengths.map(s => 
+                                    s.strength >= 70 ? '#10b981' :  // Strong - Green
+                                    s.strength >= 30 ? '#f59e0b' :  // Neutral - Yellow
+                                    '#ef4444'                       // Weak - Red
+                                ),
+                                borderColor: 'rgba(255, 255, 255, 0.5)',
+                                borderWidth: 1,
+                                borderRadius: 4,
+                                barThickness: 24
+                            }]
+                        },
+                        options: {
+                            indexAxis: 'y',
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    beginAtZero: true,
+                                    max: 100,
+                                    grid: {
+                                        display: false
+                                    },
+                                    ticks: {
+                                        font: {
+                                            size: 12
+                                        }
+                                    }
+                                },
+                                y: {
+                                    grid: {
+                                        display: false
+                                    },
+                                    ticks: {
+                                        font: {
+                                            size: 13,
+                                            weight: '500'
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    // Update currency table with sorted strengths
+                    const tbody = document.getElementById('currencyTableBody');
+                    tbody.innerHTML = '';
+                    
+                    const container = document.getElementById('currencyTableContainer');
+                    const showMoreBtn = document.getElementById('showMoreCurrencies');
+                    
+                    strengths.forEach((curr, index) => {
+                        const prevStrength = data[data.length - 2]?.[curr.currency] || curr.strength;
+                        const change = curr.strength - prevStrength;
+                        
+                        let statusColor;
+                        let status;
+                        
+                        if (curr.strength >= 70) {
+                            statusColor = 'text-emerald-500';
+                            status = 'Strong';
+                        } else if (curr.strength >= 30) {
+                            statusColor = 'text-amber-500';
+                            status = 'Neutral';
+                        } else {
+                            statusColor = 'text-rose-500';
+                            status = 'Weak';
+                        }
+                        
+                        const changeColor = change >= 0 ? 'text-emerald-500' : 'text-rose-500';
+                        
+                        const row = tbody.insertRow();
+                        row.className = 'hover:bg-gray-50 transition-colors';
+                        
+                        // Hide rows after 9 entries
+                        if (index >= 9) {
+                            row.classList.add('hidden');
+                        }
+                        
+                        row.innerHTML = `
+                            <td class="font-semibold text-gray-900 px-4 py-2.5 border-b border-gray-200 whitespace-nowrap">
+                                ${curr.flag}${curr.currency}
+                            </td>
+                            <td class="${statusColor} font-bold text-center px-4 py-2.5 border-b border-gray-200">${curr.strength.toFixed(1)}</td>
+                            <td class="${statusColor} font-bold text-center px-4 py-2.5 border-b border-gray-200">${status}</td>
+                            <td class="${changeColor} font-bold text-center px-4 py-2.5 border-b border-gray-200">${change >= 0 ? '+' : ''}${change.toFixed(2)}%</td>
+                        `;
+                    });
+                })
+                .catch(error => console.error('Error fetching strength data:', error));
+        }
+
+        function toggleCurrencyTable() {
+            const tbody = document.getElementById('currencyTableBody');
+            const button = document.getElementById('showMoreCurrencies');
+            const hiddenRows = tbody.getElementsByClassName('hidden');
+            
+            if (button.textContent === 'Show More') {
+                Array.from(hiddenRows).forEach(row => {
+                    row.classList.remove('hidden');
+                });
+                button.textContent = 'Show Less';
+            } else {
+                const rows = tbody.getElementsByTagName('tr');
+                Array.from(rows).forEach((row, index) => {
+                    if (index >= 9) {
+                        row.classList.add('hidden');
+                    }
+                });
+                button.textContent = 'Show More';
+            }
+        }
+
+        function togglePairsTable() {
+            const tbody = document.getElementById('strongestPairs');
+            const button = document.getElementById('showMorePairs');
+            const hiddenRows = tbody.getElementsByClassName('hidden');
+            
+            if (button.textContent === 'Show More') {
+                Array.from(hiddenRows).forEach(row => {
+                    row.classList.remove('hidden');
+                });
+                button.textContent = 'Show Less';
+            } else {
+                const rows = tbody.getElementsByTagName('tr');
+                Array.from(rows).forEach((row, index) => {
+                    if (index >= 9) {
+                        row.classList.add('hidden');
+                    }
+                });
+                button.textContent = 'Show More';
+            }
+        }
+
+        function updateStrongestPairs() {
+            const tbody = document.getElementById('strongestPairs');
+            const errorDiv = document.getElementById('pairsError');
+            const loadingDiv = document.getElementById('pairsLoading');
+
+            loadingDiv.classList.remove('hidden');
+            errorDiv.classList.add('hidden');
+
+            return fetch('/api/strongest_pairs')
+                .then(response => response.json())
+                .then(data => {
+                    tbody.innerHTML = '';
+                    loadingDiv.classList.add('hidden');
+
+                    data.pairs.forEach((pair, index) => {
+                        const row = tbody.insertRow();
+                        if (index >= 9) {
+                            row.classList.add('hidden');
+                        }
+
+                        const changeColor = pair.change_percent >= 0 ? 'text-emerald-500' : 'text-rose-500';
+                        const status = Math.abs(pair.change_percent) >= 1 ? 'Strong' : 'Normal';
+                        const statusColor = Math.abs(pair.change_percent) >= 1 ? 'text-emerald-500' : 'text-amber-500';
+
+                        row.innerHTML = `
+                            <td class="font-semibold text-gray-900 px-6 py-3 border-b border-gray-200">${pair.symbol}</td>
+                            <td class="${changeColor} font-bold text-center px-6 py-3 border-b border-gray-200">
+                                ${pair.change_percent >= 0 ? '+' : ''}${pair.change_percent.toFixed(2)}%
+                            </td>
+                            <td class="${changeColor} font-bold text-center px-6 py-3 border-b border-gray-200">
+                                ${pair.change_pips >= 0 ? '+' : ''}${pair.change_pips.toFixed(1)}
+                            </td>
+                            <td class="${statusColor} font-bold text-center px-6 py-3 border-b border-gray-200">${status}</td>
+                            <td class="text-right font-mono px-6 py-3 border-b border-gray-200">${pair.last_price.toFixed(5)}</td>
+                        `;
+
+                        // Update top pair analysis for the first pair
+                        if (index === 0) {
+                            updateTopPairAnalysis(pair);
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching strongest pairs:', error);
+                    loadingDiv.classList.add('hidden');
+                    errorDiv.classList.remove('hidden');
+                    errorDiv.textContent = 'Failed to load pairs data. Please try again.';
+                });
+        }
+
+        function updateTopPairAnalysis(pair) {
+            document.getElementById('topPairSymbol').textContent = pair.symbol;
+            document.getElementById('topPairTime').textContent = new Date().toLocaleTimeString();
+            
+            const changeElement = document.getElementById('topPairChange');
+            const pipsElement = document.getElementById('topPairPips');
+            
+            changeElement.textContent = `${pair.change_percent >= 0 ? '+' : ''}${pair.change_percent.toFixed(2)}%`;
+            changeElement.className = `text-lg font-semibold ${pair.change_percent >= 0 ? 'text-emerald-500' : 'text-rose-500'}`;
+            
+            pipsElement.textContent = `${pair.change_pips >= 0 ? '+' : ''}${pair.change_pips.toFixed(1)}`;
+            pipsElement.className = `text-lg font-semibold ${pair.change_pips >= 0 ? 'text-emerald-500' : 'text-rose-500'}`;
+
+            // Generate analysis text
+            const analysisText = generateAnalysisText(pair);
+            document.getElementById('topPairAnalysisText').textContent = analysisText;
+
+            // Update percentage change chart
+            updatePercentageChangeChart(pair);
+        }
+
+        function generateAnalysisText(pair) {
+            const strength = Math.abs(pair.change_percent);
+            const direction = pair.change_percent >= 0 ? 'bullish' : 'bearish';
+            let analysis = '';
+
+            if (strength >= 1.5) {
+                analysis = `Strong ${direction} momentum with significant movement of ${Math.abs(pair.change_pips).toFixed(1)} pips.`;
+            } else if (strength >= 0.8) {
+                analysis = `Moderate ${direction} trend developing with ${Math.abs(pair.change_pips).toFixed(1)} pips movement.`;
+            } else {
+                analysis = `Showing ${direction} bias but with relatively low volatility (${Math.abs(pair.change_pips).toFixed(1)} pips).`;
+            }
+
+            if (pair.spread > 3) {
+                analysis += ` Note: Wide spread of ${pair.spread} points.`;
+            }
+
+            return analysis;
+        }
+
+        function updatePercentageChangeChart(pair) {
+            const ctx = document.getElementById('percentageChangeChart').getContext('2d');
+            
+            if (percentageChangeChart) {
+                percentageChangeChart.destroy();
+            }
+
+            // Generate mock historical data for visualization
+            const dataPoints = 12;
+            const baseChange = pair.change_percent / dataPoints;
+            const data = Array.from({length: dataPoints}, (_, i) => {
+                const randomFactor = 0.5 + Math.random();
+                return baseChange * (i + 1) * randomFactor;
+            });
+
+            const times = Array.from({length: dataPoints}, (_, i) => {
+                const d = new Date();
+                d.setHours(d.getHours() - (dataPoints - i - 1));
+                return d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            });
+
+            percentageChangeChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: times,
+                    datasets: [{
+                        label: 'Change %',
+                        data: data,
+                        borderColor: pair.change_percent >= 0 ? '#10b981' : '#ef4444',
+                        backgroundColor: pair.change_percent >= 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(2) + '%';
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initial update
+        updateStrengthMeter();
+        updateStrongestPairs();
+        
+        // Auto-update every minute
+        setInterval(() => {
+            if (!isRefreshing) {
+                updateStrengthMeter();
+                updateStrongestPairs();
+            }
+        }, 60000);
+    </script>
+</body>
+</html>
